@@ -1,4 +1,4 @@
-                                                    <?php
+<?php
 require_once '../config.php';
 
 // Headers para API REST
@@ -27,7 +27,19 @@ function jsonError($message, $status = 400) {
 
 // Autenticação
 $token = null;
-$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['HTTP_X_AUTHORIZATION'] ?? '';
+$authHeader = '';
+
+// Tentar diferentes formas de obter o header de autorização
+if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+} elseif (isset($_SERVER['HTTP_X_AUTHORIZATION'])) {
+    $authHeader = $_SERVER['HTTP_X_AUTHORIZATION'];
+} elseif (function_exists('apache_request_headers')) {
+    $headers = apache_request_headers();
+    if (isset($headers['Authorization'])) {
+        $authHeader = $headers['Authorization'];
+    }
+}
 
 if (preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
     $token = $matches[1];
@@ -56,6 +68,9 @@ $path = ltrim($path, '/');
 $pathParts = explode('/', $path);
 
 try {
+    // Verificar conexão com banco
+    $pdo = getConnection();
+    
     switch ($pathParts[0]) {
         case 'photos':
             handlePhotosEndpoint($method, $pathParts, $userId, $permissions);
@@ -73,6 +88,7 @@ try {
             jsonError('Endpoint não encontrado', 404);
     }
 } catch (Exception $e) {
+    error_log("Erro na API: " . $e->getMessage());
     jsonError('Erro interno: ' . $e->getMessage(), 500);
 }
 

@@ -4,6 +4,8 @@ define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_NAME', 'photo_album');
+define('DB_CHARSET', 'utf8mb4');
+define('DB_COLLATE', 'utf8mb4_unicode_ci');
 
 // Configurações do sistema
 define('UPLOAD_DIR', 'uploads/');
@@ -19,12 +21,48 @@ session_start();
 
 // Função para conectar ao banco
 function getConnection() {
+    static $pdo = null;
+    
+    // Retornar conexão existente se já estiver conectado
+    if ($pdo !== null) {
+        return $pdo;
+    }
+    
     try {
-        $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . DB_CHARSET . " COLLATE " . DB_COLLATE
+        ];
+        
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+        
+        // Testar conexão
+        $pdo->query("SELECT 1");
+        
         return $pdo;
     } catch(PDOException $e) {
-        die("Erro na conexão: " . $e->getMessage());
+        // Log do erro
+        error_log("Erro de conexão com banco de dados: " . $e->getMessage());
+        
+        // Verificar se é erro de banco não existente
+        if (strpos($e->getMessage(), 'Unknown database') !== false) {
+            try {
+                // Tentar criar o banco
+                $pdo_temp = new PDO("mysql:host=" . DB_HOST . ";charset=" . DB_CHARSET, DB_USER, DB_PASS, $options);
+                $pdo_temp->exec("CREATE DATABASE IF NOT EXISTS " . DB_NAME . " CHARACTER SET " . DB_CHARSET . " COLLATE " . DB_COLLATE);
+                
+                // Reconectar com o banco criado
+                $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+                return $pdo;
+            } catch(PDOException $e2) {
+                die("Erro crítico: Não foi possível conectar ou criar o banco de dados. Verifique as configurações do MySQL.<br>Erro: " . $e2->getMessage());
+            }
+        }
+        
+        die("Erro na conexão com o banco de dados: " . $e->getMessage() . "<br>Verifique se o MySQL está rodando e as credenciais estão corretas.");
     }
 }
 
