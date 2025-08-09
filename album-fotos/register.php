@@ -33,6 +33,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $stmt = $pdo->prepare("INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)");
                 $stmt->execute([$username, $email, $password_hash]);
                 
+                $userId = $pdo->lastInsertId();
+                
+                // Criar categoria e álbum padrão para o novo usuário
+                try {
+                    // Criar categoria padrão
+                    $stmt = $pdo->prepare("INSERT INTO categories (user_id, name, description, color) VALUES (?, 'Geral', 'Categoria padrão', '#667eea')");
+                    $stmt->execute([$userId]);
+                    $categoryId = $pdo->lastInsertId();
+                    
+                    // Criar álbum padrão
+                    $stmt = $pdo->prepare("INSERT INTO albums (user_id, category_id, name, description) VALUES (?, ?, 'Meu Álbum', 'Álbum principal')");
+                    $stmt->execute([$userId, $categoryId]);
+                } catch (PDOException $e) {
+                    error_log("Erro ao criar categoria/álbum padrão: " . $e->getMessage());
+                }
+                
                 $success = 'Usuário criado com sucesso! <a href="login.php">Fazer login</a>';
             }
         } catch (PDOException $e) {

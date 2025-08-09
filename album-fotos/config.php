@@ -97,6 +97,59 @@ function createUserBackupDir($userId) {
     return $backupDir;
 }
 
+// Função para garantir que o usuário tenha pelo menos um álbum
+function ensureUserHasAlbum($userId) {
+    try {
+        $pdo = getConnection();
+        
+        // Verificar se usuário tem pelo menos um álbum
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM albums WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $albumCount = $stmt->fetchColumn();
+        
+        if ($albumCount == 0) {
+            // Criar categoria padrão se não existir
+            $stmt = $pdo->prepare("SELECT id FROM categories WHERE user_id = ? AND name = 'Geral'");
+            $stmt->execute([$userId]);
+            $categoryId = $stmt->fetchColumn();
+            
+            if (!$categoryId) {
+                $stmt = $pdo->prepare("INSERT INTO categories (user_id, name, description, color) VALUES (?, 'Geral', 'Categoria padrão', '#667eea')");
+                $stmt->execute([$userId]);
+                $categoryId = $pdo->lastInsertId();
+            }
+            
+            // Criar álbum padrão
+            $stmt = $pdo->prepare("INSERT INTO albums (user_id, category_id, name, description) VALUES (?, ?, 'Meu Álbum', 'Álbum principal')");
+            $stmt->execute([$userId, $categoryId]);
+            return $pdo->lastInsertId();
+        }
+        
+        // Retornar o primeiro álbum do usuário
+        $stmt = $pdo->prepare("SELECT id FROM albums WHERE user_id = ? ORDER BY created_at ASC LIMIT 1");
+        $stmt->execute([$userId]);
+        return $stmt->fetchColumn();
+        
+    } catch (PDOException $e) {
+        error_log("Erro ao garantir álbum do usuário: " . $e->getMessage());
+        return null;
+    }
+}
+
+// Função para validar se álbum pertence ao usuário
+function validateUserAlbum($albumId, $userId) {
+    if (!$albumId) return false;
+    
+    try {
+        $pdo = getConnection();
+        $stmt = $pdo->prepare("SELECT id FROM albums WHERE id = ? AND user_id = ?");
+        $stmt->execute([$albumId, $userId]);
+        return $stmt->fetchColumn() !== false;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
 // Função para gerar token único
 function generateToken($length = 32) {
     return bin2hex(random_bytes($length));

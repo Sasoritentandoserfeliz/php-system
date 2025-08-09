@@ -44,6 +44,22 @@ function handlePhotoUpload() {
     $file = $_FILES['photo'];
     $albumId = $_POST['album_id'] ?? null;
     
+    // Garantir que o usuário tenha pelo menos um álbum
+    if (!$albumId) {
+        $albumId = ensureUserHasAlbum($_SESSION['user_id']);
+        if (!$albumId) {
+            return ['message' => 'Erro ao criar álbum padrão.', 'type' => 'error'];
+        }
+    } else {
+        // Validar se o álbum pertence ao usuário
+        if (!validateUserAlbum($albumId, $_SESSION['user_id'])) {
+            $albumId = ensureUserHasAlbum($_SESSION['user_id']);
+            if (!$albumId) {
+                return ['message' => 'Álbum inválido e erro ao criar álbum padrão.', 'type' => 'error'];
+            }
+        }
+    }
+    
     // Validações
     if ($file['error'] !== UPLOAD_ERR_OK) {
         return ['message' => 'Erro no upload da imagem.', 'type' => 'error'];

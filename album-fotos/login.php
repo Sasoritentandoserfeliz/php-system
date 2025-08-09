@@ -28,6 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 // Login bem-sucedido
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
+                
+                // Garantir que o usuário tenha pelo menos um álbum
+                ensureUserHasAlbum($user['id']);
+                
                 header('Location: album.php');
                 exit();
             } else {

@@ -151,6 +151,22 @@ function handlePhotosEndpoint($method, $pathParts, $userId, $permissions) {
             $file = $_FILES['photo'];
             $albumId = $_POST['album_id'] ?? null;
             
+            // Garantir que o usuário tenha pelo menos um álbum
+            if (!$albumId) {
+                $albumId = ensureUserHasAlbum($userId);
+                if (!$albumId) {
+                    jsonError('Erro ao criar álbum padrão');
+                }
+            } else {
+                // Validar se o álbum pertence ao usuário
+                if (!validateUserAlbum($albumId, $userId)) {
+                    $albumId = ensureUserHasAlbum($userId);
+                    if (!$albumId) {
+                        jsonError('Álbum inválido e erro ao criar álbum padrão');
+                    }
+                }
+            }
+            
             // Validações
             if ($file['error'] !== UPLOAD_ERR_OK) {
                 jsonError('Erro no upload da imagem');
